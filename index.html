@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RegexPal — Test, Debug &amp; Explain Regex</title>
+  <meta name="description" content="Paste a regex and test string to see instant match highlighting, plain-English explanations, and a cheat sheet. Free, runs in your browser." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --text: #e2e8f0;
+      --muted: #6b7280;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --match1: rgba(124, 58, 237, 0.35);
+      --match2: rgba(168, 85, 247, 0.25);
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    /* Header */
+    header { padding: 1.2rem 2rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; }
+    .logo { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .logo span { color: var(--accent2); }
+    .badge { background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 999px; letter-spacing: 0.05em; text-transform: uppercase; }
+    header .suite-bar { margin-left: auto; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+    header .suite-bar a { color: var(--muted); text-decoration: none; font-size: 0.75rem; }
+    header .suite-bar a:hover { color: var(--accent2); }
+
+    /* Hero */
+    .hero { text-align: center; padding: 3rem 1rem 2rem; }
+    .hero h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 0.75rem; }
+    .hero h1 span { color: var(--accent2); }
+    .hero p { color: var(--muted); font-size: 1rem; max-width: 520px; margin: 0 auto; }
+
+    /* Main layout */
+    .app { max-width: 1000px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+    /* Panel */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1.25rem; overflow: hidden; }
+    .panel-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .panel-header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+    /* Regex input row */
+    .regex-row { display: flex; align-items: center; gap: 0; }
+    .regex-delim { padding: 0.85rem 0.75rem; color: var(--accent2); font-size: 1.3rem; font-family: monospace; font-weight: 700; user-select: none; }
+    .regex-input-wrap { flex: 1; position: relative; }
+    #regexInput {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 1.05rem; padding: 0.85rem 0.5rem;
+    }
+    .flags-input {
+      width: 60px; background: transparent; border: none; border-left: 1px solid var(--border);
+      outline: none; color: var(--accent2); font-family: monospace; font-size: 1rem;
+      padding: 0.85rem 0.75rem; text-align: center;
+    }
+    .status-pill { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; margin-left: auto; margin-right: 0.75rem; white-space: nowrap; }
+    .status-pill.valid { background: rgba(34,197,94,0.15); color: var(--green); }
+    .status-pill.invalid { background: rgba(239,68,68,0.15); color: var(--red); }
+    .status-pill.empty { background: transparent; color: var(--muted); }
+
+    /* Test string */
+    #testInput {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.95rem; padding: 1rem; resize: vertical; min-height: 90px;
+    }
+    /* Highlighted output */
+    .highlight-area { padding: 1rem; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.95rem; line-height: 1.7; word-break: break-all; min-height: 60px; white-space: pre-wrap; }
+    .match { background: var(--match1); border-radius: 3px; outline: 2px solid var(--accent); color: #fff; }
+    .match.alt { background: var(--match2); outline-color: var(--accent2); }
+    .match-count { padding: 0.5rem 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
+
+    /* Explanation */
+    .explain-area { padding: 1rem; min-height: 50px; font-size: 0.88rem; line-height: 1.7; color: var(--text); }
+    .explain-token { display: inline-block; margin: 0.2rem 0.15rem; padding: 0.15rem 0.5rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; cursor: default; }
+    .explain-token:hover .tip { display: block; }
+    .explain-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+    .token-char { font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.85rem; }
+    .token-desc { color: var(--muted); font-size: 0.8rem; }
+
+    /* AI explanation */
+    .ai-section { border-top: 1px solid var(--border); padding: 1rem; }
+    .ai-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .ai-key-row { display: flex; gap: 0.5rem; align-items: center; }
+    #aiKeyInput { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.75rem; color: var(--text); font-size: 0.85rem; outline: none; }
+    #aiKeyInput:focus { border-color: var(--accent); }
+    .btn { padding: 0.55rem 1.1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.78rem; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+    #aiOutput { margin-top: 0.75rem; font-size: 0.88rem; line-height: 1.7; color: var(--text); display: none; }
+    #aiOutput.active { display: block; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Generate regex from description */
+    .gen-section { border-top: 1px solid var(--border); padding: 1rem; }
+    .gen-row { display: flex; gap: 0.5rem; align-items: center; }
+    #genInput { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.75rem; color: var(--text); font-size: 0.85rem; outline: none; }
+    #genInput:focus { border-color: var(--accent); }
+    #genOutput { margin-top: 0.75rem; font-family: monospace; font-size: 0.9rem; color: var(--accent2); display: none; }
+    #genOutput.active { display: block; }
+
+    /* Cheat sheet */
+    .cheat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; padding: 1rem; }
+    .cheat-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.85rem; cursor: pointer; transition: border-color 0.15s; }
+    .cheat-item:hover { border-color: var(--accent2); }
+    .cheat-pattern { font-family: monospace; font-size: 0.8rem; color: var(--accent2); margin-bottom: 0.2rem; }
+    .cheat-label { font-size: 0.75rem; color: var(--muted); }
+
+    /* Match list */
+    .match-list { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .match-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.75rem; display: flex; gap: 1rem; font-family: monospace; font-size: 0.82rem; }
+    .match-item .m-val { color: var(--accent2); flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .match-item .m-pos { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+
+    /* Suite footer */
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--border); }
+    footer .suite-links { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.6rem; }
+    footer .suite-links a { color: var(--muted); text-decoration: none; }
+    footer .suite-links a:hover { color: var(--accent2); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0.25rem; padding: 0.6rem 1rem 0; border-bottom: 1px solid var(--border); }
+    .tab { padding: 0.4rem 0.9rem; border-radius: 6px 6px 0 0; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--muted); background: transparent; border: 1px solid transparent; border-bottom: none; margin-bottom: -1px; }
+    .tab.active { background: var(--bg); color: var(--text); border-color: var(--border); border-bottom-color: var(--bg); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.6rem; }
+      header .suite-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Regex<span>Pal</span></div>
+  <div class="badge">Free</div>
+  <nav class="suite-bar">
+    <a href="https://shiffasultan-collab.github.io/readmecraft/">ReadmeCraft</a>
+    <a href="https://shiffasultan-collab.github.io/commitcraft/">CommitCraft</a>
+    <a href="https://shiffasultan-collab.github.io/prcraft/">PRCraft</a>
+    <a href="https://shiffasultan-collab.github.io/changelogcraft/">ChangelogCraft</a>
+    <a href="https://shiffasultan-collab.github.io/gitdigest-static/">GitDigest</a>
+    <a href="https://shiffasultan-collab.github.io/cronhelper/">CronHelper</a>
+    <a href="https://shiffasultan-collab.github.io/envdiff/">EnvDiff</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h1>Test, debug &amp; <span>explain</span> regex</h1>
+  <p>Instant match highlighting, plain-English breakdowns, and AI-powered generation. Runs entirely in your browser.</p>
+</div>
+
+<main class="app">
+
+  <!-- Regex input -->
+  <div class="panel">
+    <div class="panel-header"><div class="dot"></div> Regex</div>
+    <div class="regex-row">
+      <span class="regex-delim">/</span>
+      <div class="regex-input-wrap">
+        <input id="regexInput" type="text" placeholder="e.g. \b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b" spellcheck="false" autocomplete="off" />
+      </div>
+      <span class="regex-delim">/</span>
+      <input id="flagsInput" class="flags-input" type="text" value="gi" placeholder="gi" maxlength="6" spellcheck="false" title="Flags: g i m s u" />
+      <span id="regexStatus" class="status-pill empty">—</span>
+    </div>
+  </div>
+
+  <!-- Test string -->
+  <div class="panel">
+    <div class="panel-header"><div class="dot"></div> Test String</div>
+    <textarea id="testInput" placeholder="Paste your test string here…" spellcheck="false"></textarea>
+  </div>
+
+  <!-- Results -->
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" data-tab="highlight">Highlighted</div>
+      <div class="tab" data-tab="matches">Match List</div>
+      <div class="tab" data-tab="explain">Explanation</div>
+    </div>
+    <div id="tab-highlight" class="tab-content active">
+      <div id="highlightOutput" class="highlight-area" style="color: var(--muted); font-style: italic;">Start typing a regex above…</div>
+      <div id="matchCount" class="match-count"></div>
+    </div>
+    <div id="tab-matches" class="tab-content">
+      <div id="matchList" class="match-list"></div>
+    </div>
+    <div id="tab-explain" class="tab-content">
+      <div id="explainOutput" class="explain-area" style="color: var(--muted);">Enter a regex to see a token-by-token breakdown.</div>
+    </div>
+  </div>
+
+  <!-- AI Section -->
+  <div class="panel">
+    <div class="panel-header"><div class="dot" style="background: var(--accent2);"></div> AI Tools <span style="font-size:0.7rem;color:var(--muted);font-weight:400;margin-left:0.3rem;">— bring your OpenAI key</span></div>
+
+    <div class="ai-section">
+      <div class="ai-label">🔑 OpenAI API Key (stored locally, never sent to our servers)</div>
+      <div class="ai-key-row">
+        <input id="aiKeyInput" type="password" placeholder="sk-..." />
+        <button class="btn btn-primary btn-sm" onclick="saveKey()">Save Key</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearKey()">Clear</button>
+      </div>
+    </div>
+
+    <div class="gen-section">
+      <div class="ai-label">✨ Describe what you want → get a regex</div>
+      <div class="gen-row">
+        <input id="genInput" type="text" placeholder="e.g. match all US phone numbers with dashes" />
+        <button class="btn btn-primary btn-sm" onclick="generateRegex()">Generate</button>
+      </div>
+      <div id="genOutput"></div>
+    </div>
+
+    <div class="ai-section" style="border-top: 1px solid var(--border);">
+      <div class="ai-label">💬 Explain current regex in plain English</div>
+      <button class="btn btn-ghost btn-sm" onclick="explainWithAI()">Explain with AI</button>
+      <div id="aiOutput"></div>
+    </div>
+  </div>
+
+  <!-- Cheat sheet -->
+  <div class="panel">
+    <div class="panel-header"><div class="dot" style="background: var(--yellow);"></div> Cheat Sheet — click to insert</div>
+    <div class="cheat-grid" id="cheatGrid"></div>
+  </div>
+
+</main>
+
+<footer>
+  <div>Built by <span style="color:var(--accent2);">OpenClaw Ventures</span> · Part of the Developer Suite</div>
+  <div class="suite-links">
+    <a href="https://shiffasultan-collab.github.io/readmecraft/">ReadmeCraft</a>
+    <a href="https://shiffasultan-collab.github.io/commitcraft/">CommitCraft</a>
+    <a href="https://shiffasultan-collab.github.io/prcraft/">PRCraft</a>
+    <a href="https://shiffasultan-collab.github.io/changelogcraft/">ChangelogCraft</a>
+    <a href="https://shiffasultan-collab.github.io/gitdigest-static/">GitDigest</a>
+    <a href="https://shiffasultan-collab.github.io/cronhelper/">CronHelper</a>
+    <a href="https://shiffasultan-collab.github.io/envdiff/">EnvDiff</a>
+  </div>
+</footer>
+
+<script>
+// ── Cheat sheet data ──────────────────────────────────────────────────────────
+const CHEAT = [
+  { label: 'Email address',         pattern: '[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}', flags: 'gi' },
+  { label: 'URL (http/https)',      pattern: 'https?:\\/\\/[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-\\.,@?^=%&:/~\\+#]*[\\w\\-\\@?^=%&/~\\+#])?', flags: 'gi' },
+  { label: 'IPv4 address',          pattern: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', flags: 'g' },
+  { label: 'US phone number',       pattern: '\\b(?:\\+1[\\-\\s]?)?\\(?\\d{3}\\)?[\\-\\s]?\\d{3}[\\-\\s]?\\d{4}\\b', flags: 'g' },
+  { label: 'Date (YYYY-MM-DD)',     pattern: '\\b\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])\\b', flags: 'g' },
+  { label: 'Time (HH:MM)',          pattern: '\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b', flags: 'g' },
+  { label: 'Integer number',        pattern: '-?\\b\\d+\\b', flags: 'g' },
+  { label: 'Decimal / float',       pattern: '-?\\b\\d+\\.\\d+\\b', flags: 'g' },
+  { label: 'Hex colour (#fff)',      pattern: '#(?:[0-9a-fA-F]{3}){1,2}\\b', flags: 'gi' },
+  { label: 'HTML tag',              pattern: '<[^>]+>', flags: 'gi' },
+  { label: 'Whitespace',            pattern: '\\s+', flags: 'g' },
+  { label: 'Word boundary',         pattern: '\\bword\\b', flags: 'gi' },
+  { label: 'Non-alphanumeric',      pattern: '[^A-Za-z0-9]', flags: 'g' },
+  { label: 'Credit card (Visa)',    pattern: '\\b4[0-9]{12}(?:[0-9]{3})?\\b', flags: 'g' },
+  { label: 'Slug (URL-safe)',       pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', flags: '' },
+  { label: 'Strong password',       pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}$', flags: '' },
+  { label: 'Markdown bold',         pattern: '\\*\\*([^*]+)\\*\\*', flags: 'g' },
+  { label: 'JWT token',             pattern: 'eyJ[A-Za-z0-9\\-_]+\\.eyJ[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_.+/]*', flags: 'g' },
+];
+
+// ── Token explainer ──────────────────────────────────────────────────────────
+const TOKEN_MAP = [
+  { re: /^\^/, label: '^', desc: 'Start of string/line' },
+  { re: /^\$/, label: '$', desc: 'End of string/line' },
+  { re: /^\\./, label: (m) => m, desc: (m) => {
+    const e = { '\\d':'Any digit (0–9)', '\\D':'Any non-digit', '\\w':'Word char (a-z,A-Z,0-9,_)', '\\W':'Non-word char', '\\s':'Whitespace', '\\S':'Non-whitespace', '\\b':'Word boundary', '\\B':'Non-word boundary', '\\n':'Newline', '\\t':'Tab', '\\r':'Carriage return' };
+    return e[m] || `Escaped char: ${m[1]}`;
+  }},
+  { re: /^\[^[^\]]*\]/, label: (m) => m, desc: 'Negated character class — match any char NOT listed' },
+  { re: /^\[[^\]]*\]/, label: (m) => m, desc: 'Character class — match any one char listed' },
+  { re: /^\(\?:/, label: '(?:', desc: 'Non-capturing group' },
+  { re: /^\(\?=/, label: '(?=', desc: 'Positive lookahead' },
+  { re: /^\(\?!/, label: '(?!', desc: 'Negative lookahead' },
+  { re: /^\(\?<=/, label: '(?<=', desc: 'Positive lookbehind' },
+  { re: /^\(\?<!/, label: '(?<!', desc: 'Negative lookbehind' },
+  { re: /^\(/, label: '(', desc: 'Capturing group — captures matched text' },
+  { re: /^\)/, label: ')', desc: 'End of group' },
+  { re: /^\{[\d,]+\}/, label: (m) => m, desc: (m) => {
+    const inner = m.slice(1,-1);
+    if (inner.includes(',')) {
+      const [a,b] = inner.split(',');
+      return b ? `Between ${a} and ${b} repetitions` : `${a} or more repetitions`;
+    }
+    return `Exactly ${inner} repetitions`;
+  }},
+  { re: /^\*\?/, label: '*?', desc: 'Zero or more (lazy)' },
+  { re: /^\+\?/, label: '+?', desc: 'One or more (lazy)' },
+  { re: /^\?\?/, label: '??', desc: 'Zero or one (lazy)' },
+  { re: /^\*/, label: '*', desc: 'Zero or more repetitions (greedy)' },
+  { re: /^\+/, label: '+', desc: 'One or more repetitions (greedy)' },
+  { re: /^\?/, label: '?', desc: 'Zero or one (optional)' },
+  { re: /^\|/, label: '|', desc: 'Alternation — match left OR right side' },
+  { re: /^\./, label: '.', desc: 'Any character except newline' },
+  { re: /^[A-Za-z0-9]/, label: (m) => m, desc: (m) => `Literal character: "${m}"` },
+  { re: /^./, label: (m) => m, desc: (m) => `Literal: "${m}"` },
+];
+
+const TOKEN_COLORS = [
+  '#7c3aed','#a855f7','#0ea5e9','#22c55e','#eab308','#f97316','#ec4899',
+];
+
+function tokenize(pattern) {
+  const tokens = [];
+  let i = 0;
+  let ci = 0;
+  while (i < pattern.length) {
+    const sub = pattern.slice(i);
+    for (const t of TOKEN_MAP) {
+      const m = sub.match(t.re);
+      if (m) {
+        const raw = m[0];
+        tokens.push({
+          raw,
+          label: typeof t.label === 'function' ? t.label(raw) : t.label,
+          desc: typeof t.desc === 'function' ? t.desc(raw) : t.desc,
+          color: TOKEN_COLORS[ci % TOKEN_COLORS.length],
+        });
+        i += raw.length;
+        ci++;
+        break;
+      }
+    }
+  }
+  return tokens;
+}
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const regexInput  = $('regexInput');
+const flagsInput  = $('flagsInput');
+const testInput   = $('testInput');
+const regexStatus = $('regexStatus');
+const highlightOut= $('highlightOutput');
+const matchCount  = $('matchCount');
+const matchList   = $('matchList');
+const explainOut  = $('explainOutput');
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function getRegex() {
+  try {
+    const r = new RegExp(regexInput.value, flagsInput.value || 'g');
+    return r;
+  } catch { return null; }
+}
+
+function update() {
+  const pattern = regexInput.value;
+  const flags   = flagsInput.value || 'g';
+  const text    = testInput.value;
+
+  // Status
+  if (!pattern) {
+    regexStatus.textContent = '—';
+    regexStatus.className = 'status-pill empty';
+    highlightOut.innerHTML = '<span style="color:var(--muted);font-style:italic;">Start typing a regex above…</span>';
+    matchCount.textContent = '';
+    matchList.innerHTML = '';
+    explainOut.innerHTML = '<span style="color:var(--muted);">Enter a regex to see a token-by-token breakdown.</span>';
+    return;
+  }
+
+  let regex;
+  try {
+    regex = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g');
+    regexStatus.textContent = '✓ Valid';
+    regexStatus.className = 'status-pill valid';
+  } catch (e) {
+    regexStatus.textContent = '✗ ' + e.message.replace(/.*: /,'').slice(0,40);
+    regexStatus.className = 'status-pill invalid';
+    highlightOut.innerHTML = `<span style="color:var(--red);">${escHtml(e.message)}</span>`;
+    matchCount.textContent = '';
+    matchList.innerHTML = '';
+    return;
+  }
+
+  // --- Highlight ---
+  if (!text) {
+    highlightOut.innerHTML = '<span style="color:var(--muted);font-style:italic;">Add a test string below…</span>';
+    matchCount.textContent = '';
+    matchList.innerHTML = '';
+  } else {
+    const matches = [...text.matchAll(regex)];
+    if (!matches.length) {
+      highlightOut.innerHTML = `<span style="color:var(--muted);">${escHtml(text)}</span>`;
+      matchCount.textContent = 'No matches found.';
+    } else {
+      let out = '';
+      let last = 0;
+      let mi = 0;
+      for (const m of matches) {
+        const s = m.index, e = s + m[0].length;
+        if (s > last) out += escHtml(text.slice(last, s));
+        const cls = mi % 2 === 0 ? 'match' : 'match alt';
+        out += `<mark class="${cls}">${escHtml(m[0])}</mark>`;
+        last = e;
+        mi++;
+      }
+      if (last < text.length) out += escHtml(text.slice(last));
+      highlightOut.innerHTML = out;
+      matchCount.textContent = `${matches.length} match${matches.length !== 1 ? 'es' : ''} found`;
+
+      // Match list
+      matchList.innerHTML = matches.map((m, i) => `
+        <div class="match-item">
+          <span class="m-val">${escHtml(m[0]) || '<empty string>'}</span>
+          <span class="m-pos">pos ${m.index}–${m.index + m[0].length}</span>
+        </div>`).join('');
+    }
+  }
+
+  // --- Token explanation ---
+  try {
+    const tokens = tokenize(pattern);
+    if (!tokens.length) {
+      explainOut.innerHTML = '<span style="color:var(--muted);">Nothing to explain yet.</span>';
+    } else {
+      explainOut.innerHTML = `
+        <div class="explain-row">${tokens.map(t =>
+          `<span class="token-char" style="background:${t.color}22;color:${t.color};border:1px solid ${t.color}44;" title="${escHtml(t.desc)}">${escHtml(t.label)}</span>`
+        ).join('')}</div>
+        <div style="display:flex;flex-direction:column;gap:0.3rem;">${tokens.map(t =>
+          `<div style="font-size:0.82rem;">
+            <span class="token-char" style="background:${t.color}22;color:${t.color};font-size:0.78rem;padding:0.1rem 0.4rem;border-radius:4px;margin-right:0.4rem;">${escHtml(t.label)}</span>
+            <span style="color:var(--muted);">${escHtml(t.desc)}</span>
+          </div>`
+        ).join('')}</div>`;
+    }
+  } catch { /* silently ignore explainer errors */ }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const t = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + t).classList.add('active');
+  });
+});
+
+// ── AI key ────────────────────────────────────────────────────────────────────
+function saveKey() {
+  const k = $('aiKeyInput').value.trim();
+  if (k) { localStorage.setItem('rp_oai_key', k); showToast('Key saved locally ✓'); }
+}
+function clearKey() { localStorage.removeItem('rp_oai_key'); $('aiKeyInput').value = ''; showToast('Key cleared'); }
+
+function getKey() {
+  const stored = localStorage.getItem('rp_oai_key');
+  const input  = $('aiKeyInput').value.trim();
+  return input || stored || '';
+}
+
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  Object.assign(t.style, { position:'fixed', bottom:'2rem', left:'50%', transform:'translateX(-50%)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'0.6rem 1.2rem', fontSize:'0.85rem', color:'var(--green)', zIndex:9999, transition:'opacity 0.3s' });
+  t.textContent = msg; t.style.opacity = 1;
+  setTimeout(() => { t.style.opacity = 0; }, 2000);
+}
+
+// ── AI explain ────────────────────────────────────────────────────────────────
+async function explainWithAI() {
+  const key = getKey();
+  if (!key) { showToast('Add your OpenAI key first'); return; }
+  const pattern = regexInput.value.trim();
+  if (!pattern) { showToast('Enter a regex first'); return; }
+
+  const out = $('aiOutput');
+  out.className = 'active';
+  out.innerHTML = '<span class="spinner"></span> Asking AI…';
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: 'You are a regex expert. Explain the given regex in plain English, in 2-4 sentences. Be concise and clear for a developer audience. No markdown, plain text only.' },
+          { role: 'user', content: `Explain this regex: /${pattern}/${flagsInput.value || 'gi'}` }
+        ]
+      })
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    out.textContent = data.choices?.[0]?.message?.content || 'No response.';
+  } catch (e) {
+    out.innerHTML = `<span style="color:var(--red);">Error: ${escHtml(e.message)}</span>`;
+  }
+}
+
+// ── AI generate ───────────────────────────────────────────────────────────────
+async function generateRegex() {
+  const key = getKey();
+  if (!key) { showToast('Add your OpenAI key first'); return; }
+  const desc = $('genInput').value.trim();
+  if (!desc) { showToast('Describe what you want to match'); return; }
+
+  const out = $('genOutput');
+  out.className = 'active';
+  out.innerHTML = '<span class="spinner"></span> Generating…';
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 150,
+        messages: [
+          { role: 'system', content: 'You are a regex expert. When given a description, reply with ONLY the raw regex pattern (no delimiters, no flags, no explanation, no markdown). Just the pattern itself.' },
+          { role: 'user', content: `Write a regex pattern that: ${desc}` }
+        ]
+      })
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    const generated = (data.choices?.[0]?.message?.content || '').trim().replace(/^\/|\/[gimsuy]*$/g,'');
+    out.innerHTML = `<span style="color:var(--muted);font-size:0.75rem;">Generated:</span> <span style="color:var(--accent2);">${escHtml(generated)}</span>
+      <button class="btn btn-ghost btn-sm" style="margin-left:0.75rem;" onclick="useGenerated('${escHtml(generated).replace(/'/g,"\\'")}')">Use this</button>`;
+  } catch (e) {
+    out.innerHTML = `<span style="color:var(--red);">Error: ${escHtml(e.message)}</span>`;
+  }
+}
+
+function useGenerated(pattern) {
+  regexInput.value = pattern;
+  update();
+}
+
+// ── Cheat sheet ───────────────────────────────────────────────────────────────
+const cheatGrid = $('cheatGrid');
+CHEAT.forEach(item => {
+  const el = document.createElement('div');
+  el.className = 'cheat-item';
+  el.innerHTML = `<div class="cheat-pattern">${escHtml(item.pattern.slice(0,40))}${item.pattern.length > 40 ? '…' : ''}</div><div class="cheat-label">${escHtml(item.label)}</div>`;
+  el.addEventListener('click', () => {
+    regexInput.value = item.pattern;
+    flagsInput.value = item.flags;
+    regexInput.focus();
+    update();
+    showToast(`Inserted: ${item.label}`);
+  });
+  cheatGrid.appendChild(el);
+});
+
+// ── Load saved key ────────────────────────────────────────────────────────────
+const savedKey = localStorage.getItem('rp_oai_key');
+if (savedKey) $('aiKeyInput').value = savedKey;
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+regexInput.addEventListener('input', update);
+flagsInput.addEventListener('input', update);
+testInput.addEventListener('input', update);
+
+// ── Default example ───────────────────────────────────────────────────────────
+regexInput.value = '[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}';
+flagsInput.value = 'gi';
+testInput.value = 'Send results to alice@example.com and bob.smith@company.co.uk — ignore info@';
+update();
+</script>
+</body>
+</html>
